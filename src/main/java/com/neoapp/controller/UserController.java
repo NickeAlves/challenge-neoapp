@@ -1,13 +1,15 @@
 package com.neoapp.controller;
 
+import com.neoapp.dto.request.UpdateUserDTO;
+import com.neoapp.dto.response.DataUpdatedUserDTO;
 import com.neoapp.dto.response.DataUserDTO;
 import com.neoapp.service.UserService;
+import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/users")
@@ -26,5 +28,8 @@ public class UserController {
         return userService.listUsersPaginated(page, size, sortBy, sortDirection);
     }
 
-
+    @PutMapping("/{id}")
+    public ResponseEntity<DataUpdatedUserDTO> updateUser(@PathVariable UUID id, @Valid @RequestBody UpdateUserDTO dto) {
+        return userService.updateUser(id, dto);
+    }
 }
