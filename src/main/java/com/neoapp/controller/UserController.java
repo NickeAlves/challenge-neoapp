@@ -3,6 +3,7 @@ package com.neoapp.controller;
 import com.neoapp.dto.request.UpdateUserDTO;
 import com.neoapp.dto.response.DataUpdatedUserDTO;
 import com.neoapp.dto.response.DataUserDTO;
+import com.neoapp.dto.response.DeleteUserResponseDTO;
 import com.neoapp.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
@@ -31,5 +32,10 @@ public class UserController {
     @PutMapping("/{id}")
     public ResponseEntity<DataUpdatedUserDTO> updateUser(@PathVariable UUID id, @Valid @RequestBody UpdateUserDTO dto) {
         return userService.updateUser(id, dto);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<DeleteUserResponseDTO> deleteUser(@PathVariable UUID id) {
+        return userService.deleteUser(id);
     }
 }
