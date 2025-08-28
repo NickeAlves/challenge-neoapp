@@ -1,25 +1,28 @@
 package com.neoapp.service;
 
 import com.neoapp.dto.request.RegisterUserDTO;
+import com.neoapp.dto.request.UpdateUserDTO;
+import com.neoapp.dto.response.DataUpdatedUserDTO;
 import com.neoapp.dto.response.DataUserDTO;
 import com.neoapp.dto.response.ResponseUserDTO;
 import com.neoapp.entity.User;
 import com.neoapp.repository.UserRepository;
 import com.neoapp.security.TokenService;
 import jakarta.transaction.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.Period;
-import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 @Service
@@ -106,6 +109,44 @@ public class UserService {
         } catch (Exception exception) {
             logger.error("Unexpected error during registration: ", exception);
             return ResponseEntity.internalServerError().body(new ResponseUserDTO(false, null, "An unexpected error occurred", null));
+        }
+    }
+
+    public ResponseEntity<DataUpdatedUserDTO> updateUser(UUID id, UpdateUserDTO dto) {
+        try {
+            Optional<User> optionalUser = userRepository.findById(id);
+
+            if (optionalUser.isEmpty()) {
+                logger.warn("User not found with id: {}", id);
+                return ResponseEntity.status(404).body(new DataUpdatedUserDTO(false, "User not found.", null, null, null, null, null, null));
+            }
+
+            User existingUser = optionalUser.get();
+
+            if (dto.name() != null) existingUser.setName(capitalizeFirstLetters(dto.name()));
+            if (dto.lastName() != null) existingUser.setName(capitalizeFirstLetters(dto.lastName()));
+
+            if (dto.email() != null && !dto.email().isEmpty()) {
+                String newEmail = dto.email().trim().toLowerCase();
+
+                if (newEmail.equals(existingUser.getEmail())) {
+                    logger.warn("Email same as previous one. Please choose a different email.");
+                    return ResponseEntity.status(409)
+                            .body(new DataUpdatedUserDTO(false, "Email same as previous one. Please choose a different email.", null, null, null, null, null, null));
+                }
+
+                existingUser.setEmail(newEmail);
+            }
+
+            userRepository.save(existingUser);
+            logger.info("User updated successfully!");
+            return ResponseEntity.ok().body(new DataUpdatedUserDTO(true, "User updated successfully!", existingUser.getId(), existingUser.getName(), existingUser.getLastName(), existingUser.getCpf(), existingUser.getEmail(), calculateAge(existingUser)));
+        } catch (IllegalArgumentException illegalArgumentException) {
+            logger.warn("Updated failed: {}", illegalArgumentException.getMessage());
+            return ResponseEntity.badRequest().body(new DataUpdatedUserDTO(false, illegalArgumentException.getMessage(), null, null, null, null, null, null));
+        } catch (Exception exception) {
+            logger.error("Unexpected error during updating: ", exception);
+            return ResponseEntity.internalServerError().body(new DataUpdatedUserDTO(false, "An unexpected error occurred", null, null, null, null, null, null));
         }
     }
 
