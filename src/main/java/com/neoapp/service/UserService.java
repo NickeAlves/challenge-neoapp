@@ -4,6 +4,7 @@ import com.neoapp.dto.request.RegisterUserDTO;
 import com.neoapp.dto.request.UpdateUserDTO;
 import com.neoapp.dto.response.DataUpdatedUserDTO;
 import com.neoapp.dto.response.DataUserDTO;
+import com.neoapp.dto.response.DeleteUserResponseDTO;
 import com.neoapp.dto.response.ResponseUserDTO;
 import com.neoapp.entity.User;
 import com.neoapp.repository.UserRepository;
@@ -148,6 +149,18 @@ public class UserService {
             logger.error("Unexpected error during updating: ", exception);
             return ResponseEntity.internalServerError().body(new DataUpdatedUserDTO(false, "An unexpected error occurred", null, null, null, null, null, null));
         }
+    }
+
+    public ResponseEntity<DeleteUserResponseDTO> deleteUser(UUID id) {
+        if (!userRepository.existsById(id)) {
+            logger.warn("User not found by id {}: ", id);
+            return ResponseEntity.status(404).body(new DeleteUserResponseDTO(false, "User not found."));
+        }
+
+        userRepository.deleteById(id);
+
+        logger.info("User deleted successfully!");
+        return ResponseEntity.ok(new DeleteUserResponseDTO(true, "User deleted successfully!"));
     }
 
     public static String capitalizeFirstLetters(String input) {
