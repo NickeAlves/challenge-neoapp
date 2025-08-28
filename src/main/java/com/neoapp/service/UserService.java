@@ -7,6 +7,10 @@ import com.neoapp.entity.User;
 import com.neoapp.repository.UserRepository;
 import com.neoapp.security.TokenService;
 import jakarta.transaction.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -36,25 +40,35 @@ public class UserService {
         this.passwordEncoder = passwordEncoder;
     }
 
-    public ResponseEntity<List<DataUserDTO>> listAllUsers() {
-        List<User> users = userRepository.findAll();
+    public ResponseEntity<Page<DataUserDTO>> listUsersPaginated(int page, int size, String sortBy, String sortDirection) {
+        try {
+            if (page < 0) page = 0;
+            if (size <= 0 || size > 100) size = 10;
+            if (sortBy == null || sortBy.isEmpty()) sortBy = "name";
 
-        if (users.isEmpty()) {
-            return ResponseEntity.notFound().build();
+            Sort.Direction direction = Sort.Direction.ASC;
+            if ("desc".equalsIgnoreCase(sortDirection)) {
+                direction = Sort.Direction.DESC;
+            }
+
+            Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
+
+            Page<User> usersPage = userRepository.findAll(pageable);
+
+            Page<DataUserDTO> userDTOsPage = usersPage.map(user -> new DataUserDTO(
+                    user.getId(),
+                    user.getName(),
+                    user.getLastName(),
+                    user.getCpf(),
+                    user.getEmail(),
+                    calculateAge(user)
+            ));
+
+            return ResponseEntity.ok(userDTOsPage);
+        } catch (Exception exception) {
+            logger.error("Error listing users with pagination: ", exception);
+            return ResponseEntity.internalServerError().build();
         }
-
-        List<DataUserDTO> userDTOs = users.stream()
-                .map(user -> new DataUserDTO(
-                        user.getId(),
-                        user.getName(),
-                        user.getLastName(),
-                        user.getCpf(),
-                        user.getEmail(),
-                        calculateAge(user)
-                ))
-                .toList();
-
-        return ResponseEntity.ok().body(userDTOs);
     }
 
     @Transactional
