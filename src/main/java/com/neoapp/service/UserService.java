@@ -1,7 +1,8 @@
 package com.neoapp.service;
 
+import com.neoapp.dto.request.LoginRequestDTO;
 import com.neoapp.dto.request.RegisterUserDTO;
-import com.neoapp.dto.request.UpdateUserDTO;
+import com.neoapp.dto.request.UpdateRequestUserDTO;
 import com.neoapp.dto.response.*;
 import com.neoapp.entity.User;
 import com.neoapp.repository.UserRepository;
@@ -192,7 +193,59 @@ public class UserService {
         }
     }
 
-    public ResponseEntity<UpdateResponseDTO> updateUser(UUID id, UpdateUserDTO dto) {
+    public ResponseEntity<LoginResponseDTO> login(LoginRequestDTO dto) {
+        try {
+            if (dto.email() == null || dto.email().trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(LoginResponseDTO.error("Email is required"));
+            }
+
+            if (dto.password() == null || dto.password().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(LoginResponseDTO.error("Password is required"));
+            }
+
+            String email = dto.email().trim().toLowerCase();
+
+            if (!EMAIL_PATTERN.matcher(email).matches()) {
+                return ResponseEntity.badRequest()
+                        .body(LoginResponseDTO.error("Invalid email format"));
+            }
+
+            Optional<User> optionalUser = userRepository.findByEmail(email);
+
+            if (optionalUser.isEmpty()) {
+                logger.warn("Login attempt with non-existent email: {}", email);
+                return ResponseEntity.status(401)
+                        .body(LoginResponseDTO.error("Invalid email or password"));
+            }
+
+            User user = optionalUser.get();
+
+            if (!passwordEncoder.matches(dto.password(), user.getPassword())) {
+                logger.warn("Login attempt with non-existent email: {}", email);
+                return ResponseEntity.status(401)
+                        .body(LoginResponseDTO.error("Invalid email or password"));
+            }
+
+            String token = tokenService.generateToken(user);
+            DataUserDTO userData = createCustomerData(user);
+
+            logger.info("User logged in successfully with email: {}", email);
+            return ResponseEntity.ok()
+                    .body(LoginResponseDTO.success("Logged in successfully", token, userData));
+        } catch (IllegalArgumentException illegalArgumentException) {
+            logger.warn("Login validation failed: {}", illegalArgumentException.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(LoginResponseDTO.error(illegalArgumentException.getMessage()));
+        } catch (Exception exception) {
+            logger.error("Unexpected error during login: ", exception);
+            return ResponseEntity.internalServerError()
+                    .body(LoginResponseDTO.error("An unexpected error occurred during login"));
+        }
+    }
+
+    public ResponseEntity<UpdateResponseDTO> updateUser(UUID id, UpdateRequestUserDTO dto) {
         try {
             Optional<User> optionalUser = userRepository.findById(id);
 

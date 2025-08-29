@@ -1,6 +1,8 @@
 package com.neoapp.controller;
 
+import com.neoapp.dto.request.LoginRequestDTO;
 import com.neoapp.dto.request.RegisterUserDTO;
+import com.neoapp.dto.response.LoginResponseDTO;
 import com.neoapp.dto.response.RegisterResponseDTO;
 import com.neoapp.service.UserService;
 import jakarta.validation.Valid;
@@ -22,5 +24,10 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<RegisterResponseDTO> register(@Valid @RequestBody RegisterUserDTO dto) {
         return userService.register(dto);
+    }
+
+    @PostMapping("/login")
+    ResponseEntity<LoginResponseDTO> login(@Valid @RequestBody LoginRequestDTO dto) {
+        return userService.login(dto);
     }
 }
