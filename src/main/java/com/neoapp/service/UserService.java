@@ -89,14 +89,7 @@ public class UserService {
             }
 
             User user = optionalUser.get();
-            DataUserDTO userDTO = new DataUserDTO(
-                    user.getId(),
-                    user.getName(),
-                    user.getLastName(),
-                    user.getCpf(),
-                    user.getEmail(),
-                    calculateAge(user)
-            );
+            DataUserDTO userDTO = createUserData(user);
 
             return ResponseEntity.ok(ResponseUserDTO.success("User found successfully", userDTO));
 
@@ -125,19 +118,35 @@ public class UserService {
             }
 
             User user = optionalUser.get();
-            DataUserDTO userDTO = new DataUserDTO(
-                    user.getId(),
-                    user.getName(),
-                    user.getLastName(),
-                    user.getCpf(),
-                    user.getEmail(),
-                    calculateAge(user)
-            );
+            DataUserDTO userDTO = createUserData(user);
 
             return ResponseEntity.ok(ResponseUserDTO.success("User found successfully", userDTO));
 
         } catch (Exception exception) {
             logger.error("Error finding user by email: ", exception);
+            return ResponseEntity.internalServerError()
+                    .body(ResponseUserDTO.notFound("Internal server error occurred while searching for user"));
+        }
+    }
+
+    public ResponseEntity<ResponseUserDTO> findUserByName(String name) {
+        try {
+            String adjustedName = capitalizeFirstLetters(name);
+
+            Optional<User> optionalUser = userRepository.findByName(adjustedName);
+
+            if (optionalUser.isEmpty()) {
+                logger.warn("User not found with name: {}", adjustedName);
+                return ResponseEntity.status(404)
+                        .body(ResponseUserDTO.notFound("User not found with the provided name"));
+            }
+
+            User user = optionalUser.get();
+            DataUserDTO dataUserDTO = createUserData(user);
+
+            return ResponseEntity.ok(ResponseUserDTO.success("User found successfully", dataUserDTO));
+        } catch (Exception exception) {
+            logger.error("Error finding user by name: ", exception);
             return ResponseEntity.internalServerError()
                     .body(ResponseUserDTO.notFound("Internal server error occurred while searching for user"));
         }
@@ -176,7 +185,7 @@ public class UserService {
             User savedUser = userRepository.save(user);
             String token = tokenService.generateToken(savedUser);
 
-            DataUserDTO userData = createCustomerData(savedUser);
+            DataUserDTO userData = createUserData(savedUser);
 
             logger.info("User registered successfully with email: {}", email);
             return ResponseEntity.status(201)
@@ -229,7 +238,7 @@ public class UserService {
             }
 
             String token = tokenService.generateToken(user);
-            DataUserDTO userData = createCustomerData(user);
+            DataUserDTO userData = createUserData(user);
 
             logger.info("User logged in successfully with email: {}", email);
             return ResponseEntity.ok()
@@ -348,7 +357,7 @@ public class UserService {
         return result.toString().trim();
     }
 
-    private DataUserDTO createCustomerData(User user) {
+    private DataUserDTO createUserData(User user) {
         return new DataUserDTO(user.getId(),
                 user.getName(),
                 user.getLastName(),
