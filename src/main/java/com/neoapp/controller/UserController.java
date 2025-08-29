@@ -36,6 +36,11 @@ public class UserController {
         return userService.findUserByEmail(email);
     }
 
+    @GetMapping("/name")
+    public ResponseEntity<ResponseUserDTO> getUserByName(@RequestParam String name) {
+        return userService.findUserByName(name);
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<UpdateResponseDTO> updateUser(@PathVariable UUID id, @Valid @RequestBody UpdateRequestUserDTO dto) {
         return userService.updateUser(id, dto);
