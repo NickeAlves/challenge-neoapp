@@ -102,6 +102,12 @@ public class UserService {
 
     public ResponseEntity<ResponseUserDTO> findUserByCpf(String cpf) {
         try {
+            if (cpf == null || !cpf.matches("\\d{11}")) {
+                logger.warn("Invalid CPF format received: {}", cpf);
+                return ResponseEntity.badRequest()
+                        .body(ResponseUserDTO.error("Invalid CPF format. Use only numbers, e.g. 00000000000"));
+            }
+
             Optional<User> optionalUser = userRepository.findByCpf(cpf);
 
             if (optionalUser.isEmpty()) {
