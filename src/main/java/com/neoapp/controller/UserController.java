@@ -1,6 +1,6 @@
 package com.neoapp.controller;
 
-import com.neoapp.dto.request.UpdateUserDTO;
+import com.neoapp.dto.request.UpdateRequestUserDTO;
 import com.neoapp.dto.response.*;
 import com.neoapp.service.UserService;
 import jakarta.validation.Valid;
@@ -37,7 +37,7 @@ public class UserController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<UpdateResponseDTO> updateUser(@PathVariable UUID id, @Valid @RequestBody UpdateUserDTO dto) {
+    public ResponseEntity<UpdateResponseDTO> updateUser(@PathVariable UUID id, @Valid @RequestBody UpdateRequestUserDTO dto) {
         return userService.updateUser(id, dto);
     }
 
