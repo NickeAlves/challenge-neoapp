@@ -1,10 +1,16 @@
 package com.neoapp.dto.response;
 
-public record ResponseUserDTO(boolean success,
-                              String token,
-                              String message,
-                              DataUserDTO user) {
-    public ResponseUserDTO(boolean success, String token, String message) {
-        this(success, token, message, null);
+public record ResponseUserDTO(
+        boolean success,
+        String message,
+        DataUserDTO user,
+        String timestamp
+) {
+    public static ResponseUserDTO success(String message, DataUserDTO user) {
+        return new ResponseUserDTO(true, message, user, java.time.Instant.now().toString());
+    }
+
+    public static ResponseUserDTO notFound(String message) {
+        return new ResponseUserDTO(false, message, null, java.time.Instant.now().toString());
     }
 }

@@ -1,7 +1,7 @@
 package com.neoapp.controller;
 
 import com.neoapp.dto.request.RegisterUserDTO;
-import com.neoapp.dto.response.ResponseUserDTO;
+import com.neoapp.dto.response.RegisterResponseDTO;
 import com.neoapp.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -20,7 +20,7 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<ResponseUserDTO> register(@Valid @RequestBody RegisterUserDTO dto) {
+    public ResponseEntity<RegisterResponseDTO> register(@Valid @RequestBody RegisterUserDTO dto) {
         return userService.register(dto);
     }
 }
