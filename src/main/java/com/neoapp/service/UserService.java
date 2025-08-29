@@ -100,6 +100,28 @@ public class UserService {
         }
     }
 
+    public ResponseEntity<ResponseUserDTO> findUserByCpf(String cpf) {
+        try {
+            Optional<User> optionalUser = userRepository.findByCpf(cpf);
+
+            if (optionalUser.isEmpty()) {
+                logger.warn("User not found with cpf: {}", cpf);
+                return ResponseEntity.status(404)
+                        .body(ResponseUserDTO.notFound("User not found with the provided cpf"));
+            }
+
+            User user = optionalUser.get();
+            DataUserDTO userDTO = createUserData(user);
+
+            return ResponseEntity.ok(ResponseUserDTO.success("User found successfully", userDTO));
+
+        } catch (Exception exception) {
+            logger.error("Error finding user by cpf: ", exception);
+            return ResponseEntity.internalServerError()
+                    .body(ResponseUserDTO.notFound("Internal server error occurred while searching for user"));
+        }
+    }
+
     public ResponseEntity<ResponseUserDTO> findUserByEmail(String email) {
         try {
             String adjustedEmail = email.trim().toLowerCase();
@@ -129,26 +151,141 @@ public class UserService {
         }
     }
 
-    public ResponseEntity<ResponseUserDTO> findUserByName(String name) {
+    public ResponseEntity<PaginatedResponseDTO<DataUserDTO>> searchUsersByName(String name, int page, int size, String sortBy, String sortDirection) {
         try {
-            String adjustedName = capitalizeFirstLetters(name);
-
-            Optional<User> optionalUser = userRepository.findByName(adjustedName);
-
-            if (optionalUser.isEmpty()) {
-                logger.warn("User not found with name: {}", adjustedName);
-                return ResponseEntity.status(404)
-                        .body(ResponseUserDTO.notFound("User not found with the provided name"));
+            if (name == null || name.trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(PaginatedResponseDTO.error("Search term is required"));
             }
 
-            User user = optionalUser.get();
-            DataUserDTO dataUserDTO = createUserData(user);
+            if (page < 0) page = 0;
+            if (size <= 0 || size > 100) size = 10;
+            if (sortBy == null || sortBy.isEmpty()) sortBy = "name";
 
-            return ResponseEntity.ok(ResponseUserDTO.success("User found successfully", dataUserDTO));
+            Sort.Direction direction = Sort.Direction.ASC;
+            if ("desc".equalsIgnoreCase(sortDirection)) {
+                direction = Sort.Direction.DESC;
+            }
+
+            Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
+
+            Page<User> usersPage = userRepository.findByNameContainingIgnoreCase(name.trim(), pageable);
+
+            if (usersPage.isEmpty()) {
+                logger.info("No users found containing name: {}", name);
+                return ResponseEntity.ok(PaginatedResponseDTO.error("No users found containing the provided name"));
+            }
+
+            Page<DataUserDTO> userDTOsPage = usersPage.map(user -> new DataUserDTO(
+                    user.getId(),
+                    user.getName(),
+                    user.getLastName(),
+                    user.getCpf(),
+                    user.getEmail(),
+                    calculateAge(user)
+            ));
+
+            logger.info("Found {} users containing name: {}", usersPage.getTotalElements(), name);
+            return ResponseEntity.ok(PaginatedResponseDTO.success(
+                    String.format("Found %d users containing '%s'", usersPage.getTotalElements(), name),
+                    userDTOsPage));
+
         } catch (Exception exception) {
-            logger.error("Error finding user by name: ", exception);
+            logger.error("Error searching users by name: ", exception);
             return ResponseEntity.internalServerError()
-                    .body(ResponseUserDTO.notFound("Internal server error occurred while searching for user"));
+                    .body(PaginatedResponseDTO.error("Internal server error occurred while searching users"));
+        }
+    }
+
+    public ResponseEntity<PaginatedResponseDTO<DataUserDTO>> searchUsersByLastName(String lastName, int page, int size, String sortBy, String sortDirection) {
+        try {
+            if (lastName == null || lastName.trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(PaginatedResponseDTO.error("Search term is required"));
+            }
+
+            if (page < 0) page = 0;
+            if (size <= 0 || size > 100) size = 10;
+            if (sortBy == null || sortBy.isEmpty()) sortBy = "lastName";
+
+            Sort.Direction direction = Sort.Direction.ASC;
+            if ("desc".equalsIgnoreCase(sortDirection)) {
+                direction = Sort.Direction.DESC;
+            }
+
+            Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
+
+            Page<User> usersPage = userRepository.findByLastNameContainingIgnoreCase(lastName.trim(), pageable);
+
+            if (usersPage.isEmpty()) {
+                logger.info("No users found containing last name: {}", lastName);
+                return ResponseEntity.ok(PaginatedResponseDTO.error("No users found containing the provided last name"));
+            }
+
+            Page<DataUserDTO> userDTOsPage = usersPage.map(user -> new DataUserDTO(
+                    user.getId(),
+                    user.getName(),
+                    user.getLastName(),
+                    user.getCpf(),
+                    user.getEmail(),
+                    calculateAge(user)
+            ));
+
+            logger.info("Found {} users containing last name: {}", usersPage.getTotalElements(), lastName);
+            return ResponseEntity.ok(PaginatedResponseDTO.success(
+                    String.format("Found %d users containing '%s'", usersPage.getTotalElements(), lastName),
+                    userDTOsPage));
+
+        } catch (Exception exception) {
+            logger.error("Error searching users by last name: ", exception);
+            return ResponseEntity.internalServerError()
+                    .body(PaginatedResponseDTO.error("Internal server error occurred while searching users"));
+        }
+    }
+
+    public ResponseEntity<PaginatedResponseDTO<DataUserDTO>> searchUsers(String search, int page, int size, String sortBy, String sortDirection) {
+        try {
+            if (search == null || search.trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(PaginatedResponseDTO.error("Search term is required"));
+            }
+
+            if (page < 0) page = 0;
+            if (size <= 0 || size > 100) size = 10;
+            if (sortBy == null || sortBy.isEmpty()) sortBy = "name";
+
+            Sort.Direction direction = Sort.Direction.ASC;
+            if ("desc".equalsIgnoreCase(sortDirection)) {
+                direction = Sort.Direction.DESC;
+            }
+
+            Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
+
+            Page<User> usersPage = userRepository.searchByNameOrLastName(search.trim(), pageable);
+
+            if (usersPage.isEmpty()) {
+                logger.info("No users found with search term: {}", search);
+                return ResponseEntity.ok(PaginatedResponseDTO.error("No users found with the provided search term"));
+            }
+
+            Page<DataUserDTO> userDTOsPage = usersPage.map(user -> new DataUserDTO(
+                    user.getId(),
+                    user.getName(),
+                    user.getLastName(),
+                    user.getCpf(),
+                    user.getEmail(),
+                    calculateAge(user)
+            ));
+
+            logger.info("Found {} users with search term: {}", usersPage.getTotalElements(), search);
+            return ResponseEntity.ok(PaginatedResponseDTO.success(
+                    String.format("Found %d users matching '%s'", usersPage.getTotalElements(), search),
+                    userDTOsPage));
+
+        } catch (Exception exception) {
+            logger.error("Error searching users: ", exception);
+            return ResponseEntity.internalServerError()
+                    .body(PaginatedResponseDTO.error("Internal server error occurred while searching users"));
         }
     }
 

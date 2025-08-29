@@ -36,10 +36,41 @@ public class UserController {
         return userService.findUserByEmail(email);
     }
 
-    @GetMapping("/name")
-    public ResponseEntity<ResponseUserDTO> getUserByName(@RequestParam String name) {
-        return userService.findUserByName(name);
+    @GetMapping("/cpf")
+    public ResponseEntity<ResponseUserDTO> getUserByCpf(@RequestParam String cpf) {
+        return userService.findUserByCpf(cpf);
     }
+
+    @GetMapping("/search")
+    public ResponseEntity<PaginatedResponseDTO<DataUserDTO>> searchUsers(
+            @RequestParam String q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "name") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDirection) {
+        return userService.searchUsers(q, page, size, sortBy, sortDirection);
+    }
+
+    @GetMapping("/search/name")
+    public ResponseEntity<PaginatedResponseDTO<DataUserDTO>> searchUsersByName(
+            @RequestParam String name,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "name") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDirection) {
+        return userService.searchUsersByName(name, page, size, sortBy, sortDirection);
+    }
+
+    @GetMapping("/search/lastname")
+    public ResponseEntity<PaginatedResponseDTO<DataUserDTO>> searchUsersByLastName(
+            @RequestParam String lastName,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "lastName") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDirection) {
+        return userService.searchUsersByLastName(lastName, page, size, sortBy, sortDirection);
+    }
+
 
     @PutMapping("/{id}")
     public ResponseEntity<UpdateResponseDTO> updateUser(@PathVariable UUID id, @Valid @RequestBody UpdateRequestUserDTO dto) {
