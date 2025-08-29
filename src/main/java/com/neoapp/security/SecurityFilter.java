@@ -24,7 +24,7 @@ public class SecurityFilter extends OncePerRequestFilter {
 
     private static final List<String> SKIP_FILTER_URLS = Arrays.asList(
             "/auth/v1/**",
-            "/users/**",
+            "/v3/api-docs/**",
             "/v3/api-docs/**",
             "/swagger-ui/**",
             "/swagger-ui.html",
