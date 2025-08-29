@@ -2,10 +2,7 @@ package com.neoapp.service;
 
 import com.neoapp.dto.request.RegisterUserDTO;
 import com.neoapp.dto.request.UpdateUserDTO;
-import com.neoapp.dto.response.DataUpdatedUserDTO;
-import com.neoapp.dto.response.DataUserDTO;
-import com.neoapp.dto.response.DeleteUserResponseDTO;
-import com.neoapp.dto.response.ResponseUserDTO;
+import com.neoapp.dto.response.*;
 import com.neoapp.entity.User;
 import com.neoapp.repository.UserRepository;
 import com.neoapp.security.TokenService;
@@ -44,7 +41,7 @@ public class UserService {
         this.passwordEncoder = passwordEncoder;
     }
 
-    public ResponseEntity<Page<DataUserDTO>> listUsersPaginated(int page, int size, String sortBy, String sortDirection) {
+    public ResponseEntity<PaginatedResponseDTO<DataUserDTO>> listUsersPaginated(int page, int size, String sortBy, String sortDirection) {
         try {
             if (page < 0) page = 0;
             if (size <= 0 || size > 100) size = 10;
@@ -56,8 +53,11 @@ public class UserService {
             }
 
             Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
-
             Page<User> usersPage = userRepository.findAll(pageable);
+
+            if (usersPage.isEmpty()) {
+                return ResponseEntity.ok(PaginatedResponseDTO.error("No users found"));
+            }
 
             Page<DataUserDTO> userDTOsPage = usersPage.map(user -> new DataUserDTO(
                     user.getId(),
@@ -68,26 +68,100 @@ public class UserService {
                     calculateAge(user)
             ));
 
-            return ResponseEntity.ok(userDTOsPage);
+            return ResponseEntity.ok(PaginatedResponseDTO.success("Users retrieved successfully", userDTOsPage));
+
         } catch (Exception exception) {
             logger.error("Error listing users with pagination: ", exception);
-            return ResponseEntity.internalServerError().build();
+            return ResponseEntity.internalServerError()
+                    .body(PaginatedResponseDTO.error("Internal server error occurred while retrieving users"));
+        }
+    }
+
+    public ResponseEntity<ResponseUserDTO> findUserById(UUID id) {
+        try {
+            Optional<User> optionalUser = userRepository.findById(id);
+
+            if (optionalUser.isEmpty()) {
+                logger.warn("User not found with id: {}", id);
+                return ResponseEntity.status(404)
+                        .body(ResponseUserDTO.notFound("User not found with the provided ID"));
+            }
+
+            User user = optionalUser.get();
+            DataUserDTO userDTO = new DataUserDTO(
+                    user.getId(),
+                    user.getName(),
+                    user.getLastName(),
+                    user.getCpf(),
+                    user.getEmail(),
+                    calculateAge(user)
+            );
+
+            return ResponseEntity.ok(ResponseUserDTO.success("User found successfully", userDTO));
+
+        } catch (Exception exception) {
+            logger.error("Error finding user by ID: ", exception);
+            return ResponseEntity.internalServerError()
+                    .body(ResponseUserDTO.notFound("Internal server error occurred while searching for user"));
+        }
+    }
+
+    public ResponseEntity<ResponseUserDTO> findUserByEmail(String email) {
+        try {
+            String adjustedEmail = email.trim().toLowerCase();
+
+            if (!EMAIL_PATTERN.matcher(adjustedEmail).matches()) {
+                return ResponseEntity.badRequest()
+                        .body(ResponseUserDTO.notFound("Invalid email format"));
+            }
+
+            Optional<User> optionalUser = userRepository.findByEmail(adjustedEmail);
+
+            if (optionalUser.isEmpty()) {
+                logger.warn("User not found with email: {}", adjustedEmail);
+                return ResponseEntity.status(404)
+                        .body(ResponseUserDTO.notFound("User not found with the provided email"));
+            }
+
+            User user = optionalUser.get();
+            DataUserDTO userDTO = new DataUserDTO(
+                    user.getId(),
+                    user.getName(),
+                    user.getLastName(),
+                    user.getCpf(),
+                    user.getEmail(),
+                    calculateAge(user)
+            );
+
+            return ResponseEntity.ok(ResponseUserDTO.success("User found successfully", userDTO));
+
+        } catch (Exception exception) {
+            logger.error("Error finding user by email: ", exception);
+            return ResponseEntity.internalServerError()
+                    .body(ResponseUserDTO.notFound("Internal server error occurred while searching for user"));
         }
     }
 
     @Transactional
-    public ResponseEntity<ResponseUserDTO> register(RegisterUserDTO dto) {
+    public ResponseEntity<RegisterResponseDTO> register(RegisterUserDTO dto) {
         try {
             String email = dto.email().trim().toLowerCase();
 
+            if (!EMAIL_PATTERN.matcher(email).matches()) {
+                return ResponseEntity.badRequest()
+                        .body(RegisterResponseDTO.error("Invalid email format"));
+            }
+
             if (userRepository.existsByEmail(email)) {
-                logger.warn("Registration attempt with existing email.");
-                return ResponseEntity.badRequest().body(new ResponseUserDTO(false, null, "Email already registered.", null));
+                logger.warn("Registration attempt with existing email: {}", email);
+                return ResponseEntity.badRequest()
+                        .body(RegisterResponseDTO.error("Email already registered"));
             }
 
             if (userRepository.existsByCpf(dto.cpf())) {
-                logger.warn("User already registered.");
-                return ResponseEntity.badRequest().body(new ResponseUserDTO(false, null, "User already registered.", null));
+                logger.warn("Registration attempt with existing CPF: {}", dto.cpf());
+                return ResponseEntity.badRequest()
+                        .body(RegisterResponseDTO.error("CPF already registered"));
             }
 
             User user = new User();
@@ -101,66 +175,106 @@ public class UserService {
             User savedUser = userRepository.save(user);
             String token = tokenService.generateToken(savedUser);
 
-            logger.info("User registered successfully.");
+            DataUserDTO userData = createCustomerData(savedUser);
 
-            return ResponseEntity.ok(new ResponseUserDTO(true, token, "Registered successfully.", createCustomerData(savedUser)));
+            logger.info("User registered successfully with email: {}", email);
+            return ResponseEntity.status(201)
+                    .body(RegisterResponseDTO.success("User registered successfully", token, userData));
+
         } catch (IllegalArgumentException illegalArgumentException) {
             logger.warn("Registration validation failed: {}", illegalArgumentException.getMessage());
-            return ResponseEntity.badRequest().body(new ResponseUserDTO(false, null, illegalArgumentException.getMessage(), null));
+            return ResponseEntity.badRequest()
+                    .body(RegisterResponseDTO.error(illegalArgumentException.getMessage()));
         } catch (Exception exception) {
             logger.error("Unexpected error during registration: ", exception);
-            return ResponseEntity.internalServerError().body(new ResponseUserDTO(false, null, "An unexpected error occurred", null));
+            return ResponseEntity.internalServerError()
+                    .body(RegisterResponseDTO.error("An unexpected error occurred during registration"));
         }
     }
 
-    public ResponseEntity<DataUpdatedUserDTO> updateUser(UUID id, UpdateUserDTO dto) {
+    public ResponseEntity<UpdateResponseDTO> updateUser(UUID id, UpdateUserDTO dto) {
         try {
             Optional<User> optionalUser = userRepository.findById(id);
 
             if (optionalUser.isEmpty()) {
-                logger.warn("User not found with id: {}", id);
-                return ResponseEntity.status(404).body(new DataUpdatedUserDTO(false, "User not found.", null, null, null, null, null, null));
+                logger.warn("Update attempt for non-existent user with id: {}", id);
+                return ResponseEntity.status(404)
+                        .body(UpdateResponseDTO.error("User not found"));
             }
 
             User existingUser = optionalUser.get();
 
-            if (dto.name() != null) existingUser.setName(capitalizeFirstLetters(dto.name()));
-            if (dto.lastName() != null) existingUser.setName(capitalizeFirstLetters(dto.lastName()));
+            if (dto.name() != null && !dto.name().trim().isEmpty()) {
+                existingUser.setName(capitalizeFirstLetters(dto.name()));
+            }
+
+            if (dto.lastName() != null && !dto.lastName().trim().isEmpty()) {
+                existingUser.setLastName(capitalizeFirstLetters(dto.lastName()));
+            }
 
             if (dto.email() != null && !dto.email().isEmpty()) {
                 String newEmail = dto.email().trim().toLowerCase();
 
+                if (!EMAIL_PATTERN.matcher(newEmail).matches()) {
+                    return ResponseEntity.badRequest()
+                            .body(UpdateResponseDTO.error("Invalid email format"));
+                }
+
                 if (newEmail.equals(existingUser.getEmail())) {
-                    logger.warn("Email same as previous one. Please choose a different email.");
                     return ResponseEntity.status(409)
-                            .body(new DataUpdatedUserDTO(false, "Email same as previous one. Please choose a different email.", null, null, null, null, null, null));
+                            .body(UpdateResponseDTO.error("New email must be different from current email"));
+                }
+
+                if (userRepository.existsByEmail(newEmail)) {
+                    return ResponseEntity.status(409)
+                            .body(UpdateResponseDTO.error("Email already in use by another user"));
                 }
 
                 existingUser.setEmail(newEmail);
             }
 
-            userRepository.save(existingUser);
-            logger.info("User updated successfully!");
-            return ResponseEntity.ok().body(new DataUpdatedUserDTO(true, "User updated successfully!", existingUser.getId(), existingUser.getName(), existingUser.getLastName(), existingUser.getCpf(), existingUser.getEmail(), calculateAge(existingUser)));
+            User updatedUser = userRepository.save(existingUser);
+            DataUserDTO updatedUserDTO = new DataUserDTO(
+                    updatedUser.getId(),
+                    updatedUser.getName(),
+                    updatedUser.getLastName(),
+                    updatedUser.getCpf(),
+                    updatedUser.getEmail(),
+                    calculateAge(updatedUser)
+            );
+
+            logger.info("User updated successfully with id: {}", id);
+            return ResponseEntity.ok(UpdateResponseDTO.success("User updated successfully", updatedUserDTO));
+
         } catch (IllegalArgumentException illegalArgumentException) {
-            logger.warn("Updated failed: {}", illegalArgumentException.getMessage());
-            return ResponseEntity.badRequest().body(new DataUpdatedUserDTO(false, illegalArgumentException.getMessage(), null, null, null, null, null, null));
+            logger.warn("Update validation failed: {}", illegalArgumentException.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(UpdateResponseDTO.error(illegalArgumentException.getMessage()));
         } catch (Exception exception) {
-            logger.error("Unexpected error during updating: ", exception);
-            return ResponseEntity.internalServerError().body(new DataUpdatedUserDTO(false, "An unexpected error occurred", null, null, null, null, null, null));
+            logger.error("Unexpected error during user update: ", exception);
+            return ResponseEntity.internalServerError()
+                    .body(UpdateResponseDTO.error("An unexpected error occurred during update"));
         }
     }
 
-    public ResponseEntity<DeleteUserResponseDTO> deleteUser(UUID id) {
-        if (!userRepository.existsById(id)) {
-            logger.warn("User not found by id {}: ", id);
-            return ResponseEntity.status(404).body(new DeleteUserResponseDTO(false, "User not found."));
+    @Transactional
+    public ResponseEntity<DeleteResponseDTO> deleteUser(UUID id) {
+        try {
+            if (!userRepository.existsById(id)) {
+                logger.warn("Delete attempt for non-existent user with id: {}", id);
+                return ResponseEntity.status(404)
+                        .body(DeleteResponseDTO.error("User not found"));
+            }
+
+            userRepository.deleteById(id);
+            logger.info("User deleted successfully with id: {}", id);
+            return ResponseEntity.ok(DeleteResponseDTO.success("User deleted successfully"));
+
+        } catch (Exception exception) {
+            logger.error("Unexpected error during user deletion: ", exception);
+            return ResponseEntity.internalServerError()
+                    .body(DeleteResponseDTO.error("An unexpected error occurred during deletion"));
         }
-
-        userRepository.deleteById(id);
-
-        logger.info("User deleted successfully!");
-        return ResponseEntity.ok(new DeleteUserResponseDTO(true, "User deleted successfully!"));
     }
 
     public static String capitalizeFirstLetters(String input) {
