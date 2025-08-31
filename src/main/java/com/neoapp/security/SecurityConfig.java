@@ -71,7 +71,7 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
 
         configuration.setAllowedOriginPatterns(Arrays.asList(
-                "https://challenge-neoapp-production.up.railway.app",
+                "https://challenge-neoapp-production.up.railway.app/",
                 "https://*.up.railway.app",
                 "https://neoapp-production.up.railway.app",
                 "http://localhost:8080",
