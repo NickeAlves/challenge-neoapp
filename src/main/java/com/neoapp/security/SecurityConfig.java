@@ -2,7 +2,6 @@ package com.neoapp.security;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -24,9 +23,6 @@ import java.util.Arrays;
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
-    @Value("${cors.allowed-origins}")
-    private String urlsOrigins;
-
     private static final Logger logger = LoggerFactory.getLogger(SecurityConfig.class);
 
     private final SecurityFilter securityFilter;
@@ -50,8 +46,10 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/v1/**",
-                                "/v3/api-docs/**",
+                        .requestMatchers(
+                                "/auth/v1/**",
+                                "/actuator/health",
+                                "/actuator/info",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
@@ -72,7 +70,13 @@ public class SecurityConfig {
 
         CorsConfiguration configuration = new CorsConfiguration();
 
-        configuration.setAllowedOriginPatterns(Arrays.asList(urlsOrigins));
+        configuration.setAllowedOriginPatterns(Arrays.asList(
+                "https://challenge-neoapp-production.up.railway.app",
+                "https://*.up.railway.app",
+                "https://neoapp-production.up.railway.app",
+                "http://localhost:8080",
+                "http://localhost:3000"
+        ));
 
         configuration.setAllowedMethods(Arrays.asList(
                 "GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"
