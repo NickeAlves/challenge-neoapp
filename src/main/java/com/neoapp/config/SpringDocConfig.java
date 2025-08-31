@@ -7,6 +7,7 @@ import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
+import io.swagger.v3.oas.models.servers.Server;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -21,6 +22,9 @@ public class SpringDocConfig {
                                 .scheme("bearer")
                                 .bearerFormat("JWT")))
                 .addSecurityItem(new SecurityRequirement().addList("bearer-key"))
+                .addServersItem(new Server()
+                        .url("https://challenge-neoapp.fly.dev")
+                        .description("Production server"))
                 .info(new Info()
                         .title("neoapp")
                         .description("NeoApp REST API, a Back-End Intern Challenge.")
