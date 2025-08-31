@@ -71,9 +71,9 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
 
         configuration.setAllowedOriginPatterns(Arrays.asList(
-                "https://challenge-neoapp.fly.dev/",
-                "http://localhost:8080",
-                "http://localhost:3000"
+                "https://challenge-neoapp.fly.dev",
+                "https://*.fly.dev",
+                "http://localhost:8080"
         ));
 
         configuration.setAllowedMethods(Arrays.asList(

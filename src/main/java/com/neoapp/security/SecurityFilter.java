@@ -9,9 +9,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Component;
-import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.util.AntPathMatcher;
+import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -24,7 +25,7 @@ public class SecurityFilter extends OncePerRequestFilter {
 
     private static final List<String> SKIP_FILTER_URLS = Arrays.asList(
             "/auth/v1/**",
-            "/v3/api-docs/**",
+            "/actuator/**",
             "/v3/api-docs/**",
             "/swagger-ui/**",
             "/swagger-ui.html",
@@ -56,18 +57,18 @@ public class SecurityFilter extends OncePerRequestFilter {
         }
 
         if ("OPTIONS".equalsIgnoreCase(method)) {
-            logger.debug("Skipping token validation for OPTIONS request");
+            logger.debug("Skipping token validation for OPTIONS request to: {}", requestURI);
             filterChain.doFilter(request, response);
             return;
         }
 
         String token = recoverToken(request);
 
-        if (token != null) {
-            String login = tokenService.validateToken(token);
+        if (token != null && !token.trim().isEmpty()) {
+            try {
+                String login = tokenService.validateToken(token);
 
-            if (login != null) {
-                try {
+                if (login != null && !login.trim().isEmpty()) {
                     UserDetails userDetails = customUserDetailsService.loadUserByUsername(login);
 
                     var authentication = new UsernamePasswordAuthenticationToken(
@@ -75,29 +76,37 @@ public class SecurityFilter extends OncePerRequestFilter {
 
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                     logger.debug("Authentication set for user: {}", login);
-                } catch (Exception e) {
-                    logger.error("Error loading UserDetails for user: {}", login, e);
                 }
-            } else {
-                logger.debug("Invalid or expired token");
+            } catch (UsernameNotFoundException e) {
+                logger.warn("User not found for token: {}", e.getMessage());
+            } catch (Exception e) {
+                logger.error("Error during token validation for URI: {}", requestURI, e);
             }
-        } else {
-            logger.debug("No token found in request");
         }
 
         filterChain.doFilter(request, response);
     }
 
     private boolean shouldSkipFilter(String requestURI) {
-        return SKIP_FILTER_URLS.stream()
+        boolean shouldSkip = SKIP_FILTER_URLS.stream()
                 .anyMatch(pattern -> pathMatcher.match(pattern, requestURI));
+
+        if (shouldSkip) {
+            logger.debug("Request URI '{}' matches skip pattern", requestURI);
+        }
+        return shouldSkip;
     }
 
     private String recoverToken(HttpServletRequest request) {
         String authHeader = request.getHeader("Authorization");
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            return authHeader.substring(7);
+
+        if (authHeader != null && authHeader.startsWith("Bearer ") && authHeader.length() > 7) {
+            String token = authHeader.substring(7);
+            logger.debug("Token found in Authorization header");
+            return token;
         }
+
+        logger.debug("No valid Bearer token found in Authorization header");
         return null;
     }
 }
