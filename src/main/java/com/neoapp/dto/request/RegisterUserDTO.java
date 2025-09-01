@@ -1,6 +1,7 @@
 package com.neoapp.dto.request;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.*;
 
 import java.time.LocalDate;
@@ -20,6 +21,7 @@ public record RegisterUserDTO(@NotBlank(message = "Name is required")
                               @NotNull
                               @Past
                               @JsonFormat(pattern = "dd/MM/yyyy")
+                              @Schema(type = "string", example = "01/09/2025", pattern = "dd/MM/yyyy")
                               LocalDate dateOfBirth,
 
                               @Email
